@@ -15,64 +15,73 @@ export interface AdminAuthResult {
  * Validates the user's session token and verifies that the user has the 'admin' role in public.profiles.
  */
 export async function requireAdminSession(tokenOrReq?: Request | string): Promise<AdminAuthResult> {
-  const supabase = await createServerSupabaseClient();
-  let user = null;
+  try {
+    const supabase = await createServerSupabaseClient();
+    let user = null;
 
-  if (typeof tokenOrReq === "string") {
-    // If a JWT token string was provided explicitly
-    const { data: tokenUserData, error: tokenErr } = await supabase.auth.getUser(tokenOrReq);
-    if (tokenErr || !tokenUserData?.user) {
+    if (typeof tokenOrReq === "string") {
+      // If a JWT token string was provided explicitly
+      const { data: tokenUserData, error: tokenErr } = await supabase.auth.getUser(tokenOrReq);
+      if (tokenErr || !tokenUserData?.user) {
+        return {
+          authorized: false,
+          error: "Invalid or expired authorization token.",
+          statusCode: 401,
+        };
+      }
+      user = tokenUserData.user;
+    } else {
+      // Standard cookie-based session
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) {
+        return {
+          authorized: false,
+          error: "Authentication required. Please log in.",
+          statusCode: 401,
+        };
+      }
+      user = data.user;
+    }
+
+    // Double verification: Check public.profiles role
+    const serviceClient = getServiceRoleClient();
+    const { data: profile, error: profileErr } = await serviceClient
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (profileErr || !profile) {
       return {
         authorized: false,
-        error: "Invalid or expired authorization token.",
-        statusCode: 401,
+        error: "User profile not found.",
+        statusCode: 403,
       };
     }
-    user = tokenUserData.user;
-  } else {
-    // Standard cookie-based session
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data?.user) {
+
+    if (profile.role !== "admin") {
       return {
         authorized: false,
-        error: "Authentication required. Please log in.",
-        statusCode: 401,
+        error: "Forbidden: Account does not have administrator privileges.",
+        statusCode: 403,
       };
     }
-    user = data.user;
-  }
 
-  // Double verification: Check public.profiles role
-  const serviceClient = getServiceRoleClient();
-  const { data: profile, error: profileErr } = await serviceClient
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (profileErr || !profile) {
+    return {
+      authorized: true,
+      userId: user.id,
+      email: user.email || profile.email,
+      profile: profile as Profile,
+      statusCode: 200,
+    };
+  } catch (err: any) {
+    console.error("requireAdminSession error:", err);
     return {
       authorized: false,
-      error: "User profile not found.",
-      statusCode: 403,
+      error: err?.message || "Authentication service is currently unavailable.",
+      statusCode: 500,
     };
   }
-
-  if (profile.role !== "admin") {
-    return {
-      authorized: false,
-      error: "Forbidden: Account does not have administrator privileges.",
-      statusCode: 403,
-    };
-  }
-
-  return {
-    authorized: true,
-    userId: user.id,
-    email: user.email || profile.email,
-    profile: profile as Profile,
-    statusCode: 200,
-  };
 }
 
 /**

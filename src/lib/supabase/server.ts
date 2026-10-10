@@ -2,10 +2,28 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+export function isSupabaseServerConfigured(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return Boolean(
+    url &&
+      key &&
+      url !== "https://your-project.supabase.co" &&
+      key !== "your-anon-key" &&
+      !url.includes("your-project")
+  );
+}
+
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+  if (!isSupabaseServerConfigured()) {
+    throw new Error(
+      "Server Supabase configuration is missing. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment."
+    );
+  }
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -33,7 +51,14 @@ export async function createServerSupabaseClient() {
  */
 export function getServiceRoleClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+  if (!supabaseUrl || !serviceRoleKey || !isSupabaseServerConfigured()) {
+    throw new Error(
+      "Service role client cannot be initialized: Supabase URL or keys are not configured in your deployment environment."
+    );
+  }
 
   return createSupabaseClient(supabaseUrl, serviceRoleKey, {
     auth: {
@@ -42,3 +67,4 @@ export function getServiceRoleClient() {
     },
   });
 }
+
