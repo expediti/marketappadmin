@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Menu, LogOut, Shield, ExternalLink } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 
@@ -17,13 +16,12 @@ export function AdminHeader({ onMenuToggle, adminEmail, adminName }: AdminHeader
 
   const handleSignOut = async () => {
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      await fetch("/api/admin/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Signout request error:", err);
+    } finally {
       router.push("/login");
       router.refresh();
-    } catch (err) {
-      console.error("Signout error:", err);
-      router.push("/login");
     }
   };
 
@@ -63,7 +61,9 @@ export function AdminHeader({ onMenuToggle, adminEmail, adminName }: AdminHeader
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <div className="text-xs font-medium text-slate-200">{adminName || adminEmail || "Administrator"}</div>
+            <div className="text-xs font-medium text-slate-200">
+              {adminName || adminEmail || "Administrator"}
+            </div>
             <div className="text-[11px] text-indigo-400 font-mono">Role: admin</div>
           </div>
 

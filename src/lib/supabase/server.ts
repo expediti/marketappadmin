@@ -1,10 +1,15 @@
-import { createServerClient } from "@supabase/ssr";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { createClient as createSupabaseClient, SupabaseClient } from "@supabase/supabase-js";
 
-export function isSupabaseServerConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+/**
+ * Checks whether Supabase database environment variables are configured
+ */
+export function isSupabaseConfigured(): boolean {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   return Boolean(
     url &&
       key &&
@@ -14,49 +19,21 @@ export function isSupabaseServerConfigured(): boolean {
   );
 }
 
-export async function createServerSupabaseClient() {
-  const cookieStore = await cookies();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-
-  if (!isSupabaseServerConfigured()) {
-    throw new Error(
-      "Server Supabase configuration is missing. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment."
-    );
-  }
-
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // The `setAll` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing user sessions.
-        }
-      },
-    },
-  });
-}
-
 /**
- * Service Role Client: Strictly Server-Side Only
- * Bypasses RLS to execute admin-level tasks and audit recording.
- * Requires SUPABASE_SERVICE_ROLE_KEY configured in environment/secrets.
+ * Service Role / Database Client: Server-Side Only
+ * Provides database access for admin dashboard queries and actions.
  */
-export function getServiceRoleClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+export function getServiceRoleClient(): SupabaseClient {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    "";
 
-  if (!supabaseUrl || !serviceRoleKey || !isSupabaseServerConfigured()) {
+  if (!supabaseUrl || !serviceRoleKey || !isSupabaseConfigured()) {
     throw new Error(
-      "Service role client cannot be initialized: Supabase URL or keys are not configured in your deployment environment."
+      "Supabase database is not configured. Please set SUPABASE_SERVICE_ROLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY) and NEXT_PUBLIC_SUPABASE_URL in your deployment environment."
     );
   }
 
@@ -67,4 +44,3 @@ export function getServiceRoleClient() {
     },
   });
 }
-

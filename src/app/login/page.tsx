@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { ShieldCheck, Lock, Mail, AlertCircle, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
@@ -18,41 +17,31 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-
-      // 1. Authenticate with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const res = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
       });
 
-      if (authError || !authData.user) {
-        setError(authError?.message || "Invalid login credentials.");
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setError(data.error || "Invalid admin email or password.");
         setLoading(false);
         return;
       }
 
-      // 2. Client-side sanity check: Verify public.profiles role = 'admin'
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role, display_name")
-        .eq("id", authData.user.id)
-        .single();
-
-      if (profileError || !profile || profile.role !== "admin") {
-        // Immediately revoke session
-        await supabase.auth.signOut();
-        setError("Access Denied: This account does not have administrator privileges.");
-        setLoading(false);
-        return;
-      }
-
-      // 3. Authorized admin
+      // Successful admin login
       router.push("/");
       router.refresh();
     } catch (err: any) {
-      console.error("Login unexpected error:", err);
-      setError(err?.message || "An unexpected error occurred. Please check network/config.");
+      console.error("Login request error:", err);
+      setError("An unexpected network error occurred. Please try again.");
       setLoading(false);
     }
   };
@@ -139,7 +128,7 @@ export default function LoginPage() {
 
         <div className="mt-8 pt-6 border-t border-slate-800 text-center">
           <p className="text-[11px] text-slate-500">
-            Protected by Supabase Auth & Role-Based Row Level Security.
+            Protected by Secure HTTP-Only Session Authentication.
           </p>
         </div>
       </div>
