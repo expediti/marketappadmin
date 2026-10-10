@@ -60,12 +60,12 @@ export async function GET(request: Request) {
         .eq("status", "pending"),
       supabase
         .from("admin_actions")
-        .select("*, admin:profiles!admin_actions_admin_id_fkey(display_name, email)")
+        .select("*, admin:profiles!admin_id(display_name, email)")
         .order("created_at", { ascending: false })
         .limit(8),
       supabase
         .from("order_events")
-        .select("*, actor:profiles!order_events_actor_id_fkey(display_name, email)")
+        .select("*, actor:profiles!actor_id(display_name, email)")
         .order("created_at", { ascending: false })
         .limit(8),
       supabase

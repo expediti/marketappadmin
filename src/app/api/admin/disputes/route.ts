@@ -16,14 +16,14 @@ export async function GET(request: Request) {
       .select(
         `
         *,
-        raised_by_user:profiles!disputes_raised_by_fkey(id, display_name, email, role),
-        resolved_by_admin:profiles!disputes_resolved_by_fkey(id, display_name, email),
-        order:orders(
+        raised_by_user:profiles!raised_by(id, display_name, email, role),
+        resolved_by_admin:profiles!resolved_by(id, display_name, email),
+        order:orders!order_id(
           *,
-          creator:profiles!orders_creator_id_fkey(id, display_name, email),
-          business:profiles!orders_business_id_fkey(id, display_name, email),
-          brief:order_briefs(*),
-          deliveries:deliveries(*)
+          creator:profiles!creator_id(id, display_name, email),
+          business:profiles!business_id(id, display_name, email),
+          brief:order_briefs!order_id(*),
+          deliveries:deliveries!order_id(*)
         )
       `
       )
@@ -31,7 +31,22 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json({ disputes: disputes || [] });
+    const normalizedDisputes = (disputes || []).map((d: any) => ({
+      ...d,
+      raised_by_user: Array.isArray(d.raised_by_user) ? d.raised_by_user[0] || null : d.raised_by_user || null,
+      resolved_by_admin: Array.isArray(d.resolved_by_admin) ? d.resolved_by_admin[0] || null : d.resolved_by_admin || null,
+      order: d.order
+        ? {
+            ...d.order,
+            creator: Array.isArray(d.order.creator) ? d.order.creator[0] || null : d.order.creator || null,
+            business: Array.isArray(d.order.business) ? d.order.business[0] || null : d.order.business || null,
+            brief: Array.isArray(d.order.brief) ? d.order.brief[0] || null : d.order.brief || null,
+            deliveries: Array.isArray(d.order.deliveries) ? d.order.deliveries : [],
+          }
+        : null,
+    }));
+
+    return NextResponse.json({ disputes: normalizedDisputes });
   } catch (error: any) {
     console.error("Fetch disputes error:", error);
     return NextResponse.json(

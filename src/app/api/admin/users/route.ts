@@ -23,8 +23,8 @@ export async function GET(request: Request) {
       .select(
         `
         *,
-        creator_profile:creator_profiles(*),
-        business_profile:business_profiles(*)
+        creator_profile:creator_profiles!user_id(*),
+        business_profile:business_profiles!user_id(*)
       `,
         { count: "exact" }
       );
@@ -47,8 +47,18 @@ export async function GET(request: Request) {
       throw error;
     }
 
+    const normalizedUsers = (users || []).map((u: any) => ({
+      ...u,
+      creator_profile: Array.isArray(u.creator_profile)
+        ? u.creator_profile[0] || null
+        : u.creator_profile || null,
+      business_profile: Array.isArray(u.business_profile)
+        ? u.business_profile[0] || null
+        : u.business_profile || null,
+    }));
+
     return NextResponse.json({
-      users: users || [],
+      users: normalizedUsers,
       pagination: {
         page,
         limit,

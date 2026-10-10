@@ -22,10 +22,11 @@ export async function GET(request: Request) {
       .select(
         `
         *,
-        creator:profiles!orders_creator_id_fkey(id, display_name, email, avatar_url),
-        business:profiles!orders_business_id_fkey(id, display_name, email, avatar_url),
-        brief:order_briefs(*),
-        deliveries:deliveries(*)
+        creator:profiles!creator_id(id, display_name, email, avatar_url),
+        business:profiles!business_id(id, display_name, email, avatar_url),
+        campaign:campaigns!campaign_id(id, title),
+        brief:order_briefs!order_id(*),
+        deliveries:deliveries!order_id(*)
       `,
         { count: "exact" }
       );
@@ -42,8 +43,17 @@ export async function GET(request: Request) {
       throw error;
     }
 
+    const normalizedOrders = (orders || []).map((o: any) => ({
+      ...o,
+      creator: Array.isArray(o.creator) ? o.creator[0] || null : o.creator || null,
+      business: Array.isArray(o.business) ? o.business[0] || null : o.business || null,
+      campaign: Array.isArray(o.campaign) ? o.campaign[0] || null : o.campaign || null,
+      brief: Array.isArray(o.brief) ? o.brief[0] || null : o.brief || null,
+      deliveries: Array.isArray(o.deliveries) ? o.deliveries : [],
+    }));
+
     return NextResponse.json({
-      orders: orders || [],
+      orders: normalizedOrders,
       pagination: {
         page,
         limit,

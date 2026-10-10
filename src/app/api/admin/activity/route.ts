@@ -21,12 +21,12 @@ export async function GET(request: Request) {
     ] = await Promise.all([
       supabase
         .from("admin_actions")
-        .select("*, admin:profiles!admin_actions_admin_id_fkey(display_name, email, avatar_url)")
+        .select("*, admin:profiles!admin_id(display_name, email, avatar_url)")
         .order("created_at", { ascending: false })
         .limit(limit),
       supabase
         .from("order_events")
-        .select("*, actor:profiles!order_events_actor_id_fkey(display_name, email, avatar_url)")
+        .select("*, actor:profiles!actor_id(display_name, email, avatar_url)")
         .order("created_at", { ascending: false })
         .limit(limit),
     ]);

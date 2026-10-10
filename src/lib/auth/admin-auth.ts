@@ -39,6 +39,10 @@ export async function requireAdminSession(
   };
 }
 
+const isValidUuid = (val?: string): boolean =>
+  typeof val === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
 /**
  * Record an administrative action to public.admin_actions (if DB is connected)
  */
@@ -59,15 +63,21 @@ export async function logAdminAuditAction({
     const serviceClient = getServiceRoleClient();
     if (!serviceClient) return;
 
+    const validAdminId = isValidUuid(adminId) ? adminId : null;
+
     await serviceClient.from("admin_actions").insert({
-      admin_id: adminId || "admin",
+      admin_id: validAdminId,
       action,
       target_type: targetType,
       target_id: targetId,
-      metadata: metadata || {},
+      metadata: {
+        ...(metadata || {}),
+        actor: adminId,
+      },
       created_at: new Date().toISOString(),
     });
   } catch (err) {
     // Database write skipped if database not configured
   }
 }
+
