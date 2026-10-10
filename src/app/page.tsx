@@ -32,10 +32,6 @@ export default function DashboardOverviewPage() {
     try {
       const res = await fetch("/api/admin/overview");
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          window.location.href = "/login";
-          return;
-        }
         throw new Error(`Failed to load metrics: ${res.statusText}`);
       }
       const json = await res.json();
